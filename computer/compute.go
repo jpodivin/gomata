@@ -41,7 +41,11 @@ func InitWorld(worldSize int, density float32, randomInit bool, right bool, remo
 		} else {
 			initializedWorld.networkCell = 0
 		}
-		StartServer(initializedWorld, remoteConn[0])
+		err := StartServer(initializedWorld, remoteConn[0])
+
+		if err != nil {
+			return initializedWorld, fmt.Errorf("StartServer encountered error {%v}", err)
+		}
 	} else if len(remoteConn) > 2 {
 		return initializedWorld, fmt.Errorf("invalid connection parameters %v", remoteConn)
 	}
@@ -115,7 +119,7 @@ func UpdateState(index int, world World, rule [8]int8, networked bool, remoteCon
 		)
 	}
 	if err != nil {
-		return fmt.Errorf("error during computation of state of cell %v", index)
+		return fmt.Errorf("error: {%v} encountered during computation of state of cell %v", err, index)
 	}
 	world.CurrentState[index] = newValue
 
@@ -125,7 +129,7 @@ func UpdateState(index int, world World, rule [8]int8, networked bool, remoteCon
 func ComputeState(world World, rule [8]int8, remoteConn ...string) error {
 
 	networked := false
-
+	var err error
 	if len(world.OldState) == 0 || len(world.CurrentState) == 0 {
 		return fmt.Errorf("World of size '0' given")
 	}
@@ -140,9 +144,13 @@ func ComputeState(world World, rule [8]int8, remoteConn ...string) error {
 		go func(index int) {
 			defer cellGroup.Done()
 			if networked {
-				UpdateState(index, world, rule, networked, remoteConn[0])
+				err = UpdateState(index, world, rule, networked, remoteConn[0])
 			} else {
-				UpdateState(index, world, rule, networked)
+				err = UpdateState(index, world, rule, networked)
+			}
+
+			if err != nil {
+				fmt.Printf("UpdateState error {%v}", err)
 			}
 
 		}(i)
